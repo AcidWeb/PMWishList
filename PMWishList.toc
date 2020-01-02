@@ -1,0 +1,9 @@
+## Interface: 80205
+## Title: |cFFF2E699PM|r WishList
+## Notes: Raid loot wishlist implementation for Primori Morte.
+## Version: 1.0.0
+## Author: AcidWeb
+## SavedVariablesPerCharacter: PMWishListData
+
+Embeds.xml
+PMWishList.xml
