@@ -2,13 +2,14 @@ local _G = _G
 local _, PM = ...
 _G.PMWishList = PM
 
-local wipe, date, tContains = _G.wipe, _G.date, _G.tContains
+local wipe, date, tContains, tSort, tInsert, strlen, print, tostring, pairs, select, next = _G.wipe, _G.date, _G.tContains, _G.table.sort, _G.tinsert, _G.strlenutf8, _G.print, _G.tostring, _G.pairs, _G.select, _G.next
 local CreateFrame = _G.CreateFrame
 local CreateTextureMarkup = _G.CreateTextureMarkup
 local NewTimer = _G.C_Timer.NewTimer
 local GameTooltip_Hide = _G.GameTooltip_Hide
 local GetItemInfo = _G.GetItemInfo
 local GetInstanceInfo = _G.GetInstanceInfo
+local GetRaidRosterInfo = _G.GetRaidRosterInfo
 local GetTexCoordsForRole = _G.GetTexCoordsForRole
 local UnitInRaid = _G.UnitInRaid
 local UnitClass = _G.UnitClass
@@ -27,6 +28,8 @@ PM.Version = 1
 PM.EJButtonNumber = 10
 PM.WishListData = {}
 PM.PlayerData = {}
+PM.RaidData = {}
+PM.ScoreSort = {}
 PM.InstanceWhitelist = {
   1179 -- The Eternal Palace
 }
@@ -78,10 +81,23 @@ function PM:OnEvent(self, event, ...)
         end
       end
 
-      _G.SlashCmdList["PMWL"] = function()
+      _G.SlashCmdList["PMWL"] = function(msg)
+        wipe(PM.WishListData)
+        wipe(PM.PlayerData)
+        wipe(PM.RaidData)
+
         local target = "GUILD"
         if UnitInRaid("PLAYER") then
           target = "RAID"
+          for i = 1, MAX_RAID_MEMBERS do
+            local name = GetRaidRosterInfo(i)
+            if name then
+              PM.RaidData[name] = false
+            end
+          end
+        end
+        if msg == "all" then
+          target = "GUILD"
         end
         local _, type, _, _, _, _, _, instanceID = GetInstanceInfo()
         if not type == "raid" or not tContains(PM.InstanceWhitelist, instanceID) then
@@ -90,8 +106,6 @@ function PM:OnEvent(self, event, ...)
         local data = {["version"] = PM.Version,
                       ["command"] = "request",
                       ["instanceID"] = instanceID}
-        wipe(PM.WishListData)
-        wipe(PM.PlayerData)
         COMM:SendCommMessage("PMWishList", SER:Serialize(data), target)
       end
 
@@ -149,6 +163,9 @@ function PM:OnAddonMessage(msg, channel, sender)
       end
       if payload["version"] == PM.Version then
         PM.PlayerData[sender] = {["role"] = payload["role"], ["class"] = payload["class"]}
+        if PM.RaidData[sender] ~= nil then
+          PM.RaidData[sender] = true
+        end
         if not PM.WishListData[payload["instanceID"]] then
           PM.WishListData[payload["instanceID"]] = {}
         end
@@ -276,11 +293,16 @@ function PM:UpdateFrame()
     while encounterID do
       PM.DumpFrame:AddLine("|cFFFF0000- "..name.." -|r")
       if PM.WishListData[instanceID][encounterID] then
-        table.sort(PM.WishListData[instanceID][encounterID], PM.ScoreSort)
+        wipe(PM.ScoreSort)
         for player, data in pairs(PM.WishListData[instanceID][encounterID]) do
-          local wishList = PM:GetWishList(data)
+          tInsert(PM.ScoreSort, {player, data["Score"]})
+        end
+        tSort(PM.ScoreSort, PM.ScoreSorting)
+        for x=1, #PM.ScoreSort do
+          local player = PM.ScoreSort[x][1]
+          local wishList = PM:GetWishList(PM.WishListData[instanceID][encounterID][player])
           if wishList then
-            PM.DumpFrame:AddLine("|c"..RAID_CLASS_COLORS[PM.PlayerData[player]["class"]].colorStr..player.."|r ||"..PM:GetRoleIcon(PM.PlayerData[player]["role"])..wishList)
+            PM.DumpFrame:AddLine("|c"..RAID_CLASS_COLORS[PM.PlayerData[player]["class"]].colorStr..player.."|r ||"..PM:GetRoleIcon(player, PM.PlayerData[player]["role"])..wishList)
           end
         end
       end
@@ -289,6 +311,21 @@ function PM:UpdateFrame()
       index = index + 1
       name, _, encounterID = EJ_GetEncounterInfoByIndex(index, instanceID)
     end
+  end
+
+  if UnitInRaid("PLAYER") then
+    PM.DumpFrame:AddLine(" ")
+    PM.DumpFrame:AddLine("|cFFFFFF00In raid but with an empty wish list or outdated/missing addon:|r")
+    local payload = " "
+    for name, response in pairs(PM.RaidData) do
+      if not response then
+        payload = payload..name..", "
+      end
+    end
+    if strlen(payload) > 1 then
+      payload = payload:sub(1, -3)
+    end
+    PM.DumpFrame:AddLine(payload)
   end
 
   PM.DumpFrame:Display()
@@ -300,8 +337,8 @@ function PM:GetWishList(data)
   end
 end
 
-function PM:GetRoleIcon(role)
-  if role ~= "NONE" then
+function PM:GetRoleIcon(name, role)
+  if PM.RaidData[name] ~= nil and role ~= "NONE" then
     return PM.Roles[role].."|| "
   else
     return " "
@@ -322,6 +359,6 @@ function PM:CheckIfVanityItem(itemClassID, itemSubClassID)
 	return vanityItem
 end
 
-function PM:ScoreSort(a, b)
-  return a["Score"] < b["Score"]
+function PM:ScoreSorting(a, b)
+  return a[2] > b[2]
 end
