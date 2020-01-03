@@ -4,6 +4,8 @@
 ## Version: 1.0.0
 ## Author: AcidWeb
 ## SavedVariablesPerCharacter: PMWishListData
+## X-Website: https://www.curseforge.com/wow/addons/pm-wishlist
+## X-Curse-Project-ID: 356943
 
 Embeds.xml
 PMWishList.xml

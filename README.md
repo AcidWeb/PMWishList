@@ -1,6 +1,6 @@
 # PM WishList
 
-[Curse]()
+[Curse](https://www.curseforge.com/wow/addons/pm-wishlist)
 
 ## COPYRIGHT
 
