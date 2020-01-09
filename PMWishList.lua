@@ -2,7 +2,7 @@ local _G = _G
 local _, PM = ...
 _G.PMWishList = PM
 
-local wipe, date, tContains, tSort, tInsert, strlen, print, tostring, pairs, select, next = _G.wipe, _G.date, _G.tContains, _G.table.sort, _G.tinsert, _G.strlenutf8, _G.print, _G.tostring, _G.pairs, _G.select, _G.next
+local wipe, date, tContains, tSort, tInsert, strlen, print, tostring, pairs, select, next, hooksecurefunc = _G.wipe, _G.date, _G.tContains, _G.table.sort, _G.tinsert, _G.strlenutf8, _G.print, _G.tostring, _G.pairs, _G.select, _G.next, _G.hooksecurefunc
 local CreateFrame = _G.CreateFrame
 local CreateTextureMarkup = _G.CreateTextureMarkup
 local NewTimer = _G.C_Timer.NewTimer
@@ -11,13 +11,13 @@ local GetItemInfo = _G.GetItemInfo
 local GetInstanceInfo = _G.GetInstanceInfo
 local GetRaidRosterInfo = _G.GetRaidRosterInfo
 local GetTexCoordsForRole = _G.GetTexCoordsForRole
-local UnitInRaid = _G.UnitInRaid
 local UnitClass = _G.UnitClass
+local UnitInRaid = _G.UnitInRaid
 local UnitGroupRolesAssigned = _G.UnitGroupRolesAssigned
 local EJ_GetEncounterInfoByIndex = _G.EJ_GetEncounterInfoByIndex
 local EJ_GetInstanceInfo = _G.EJ_GetInstanceInfo
 local EJ_InstanceIsRaid = _G.EJ_InstanceIsRaid
-local hooksecurefunc = _G.hooksecurefunc
+local EJ_SelectInstance = _G.EJ_SelectInstance
 
 local GUI = LibStub("AceGUI-3.0")
 local SER = LibStub("AceSerializer-3.0")
@@ -173,13 +173,14 @@ function PM:OnAddonMessage(msg, channel, sender)
           if not PM.WishListData[payload["instanceID"]][i] then
             PM.WishListData[payload["instanceID"]][i] = {}
           end
-          for _, k in pairs(payload["data"][i]) do
+          for itemID, k in pairs(payload["data"][i]) do
             if k > 0 then
               if not PM.WishListData[payload["instanceID"]][i][sender] then
-                PM.WishListData[payload["instanceID"]][i][sender] = {[1] = 0, [2] = 0, [3] = 0, [4] = 0, ["Score"] = 0}
+                PM.WishListData[payload["instanceID"]][i][sender] = {[1] = 0, [2] = 0, [3] = 0, [4] = 0, ["Score"] = 0, ["Items"] = {}}
               end
               PM.WishListData[payload["instanceID"]][i][sender][k] = PM.WishListData[payload["instanceID"]][i][sender][k] + 1
               PM.WishListData[payload["instanceID"]][i][sender]["Score"] = PM.WishListData[payload["instanceID"]][i][sender]["Score"] + PM.StatusScore[k]
+              PM.WishListData[payload["instanceID"]][i][sender]["Items"][itemID] = k
             end
           end
         end
@@ -283,13 +284,14 @@ function PM:UpdateFrame()
   if not type == "raid" or not tContains(PM.InstanceWhitelist, instanceID) then
     instanceID = PM.InstanceWhitelist[#PM.InstanceWhitelist]
   end
-  local instanceName = EJ_GetInstanceInfo(instanceID)
+  EJ_SelectInstance(instanceID)
+  local instanceName = EJ_GetInstanceInfo()
   PM.DumpFrame:AddLine("|cFFF2E699~~ "..instanceName.." || "..date("%m/%d/%y %H:%M:%S").." ~~|r")
   PM.DumpFrame:AddLine(" ")
 
   if PM.WishListData[instanceID] then
     local index = 1
-    local name, _, encounterID = EJ_GetEncounterInfoByIndex(index, instanceID)
+    local name, _, encounterID = EJ_GetEncounterInfoByIndex(index)
     while encounterID do
       PM.DumpFrame:AddLine("|cFFFF0000- "..name.." -|r")
       if PM.WishListData[instanceID][encounterID] then
@@ -297,7 +299,7 @@ function PM:UpdateFrame()
         for player, data in pairs(PM.WishListData[instanceID][encounterID]) do
           tInsert(PM.ScoreSort, {player, data["Score"]})
         end
-        tSort(PM.ScoreSort, PM.ScoreSorting)
+        tSort(PM.ScoreSort, function(a, b) return a[2] > b[2] end)
         for x=1, #PM.ScoreSort do
           local player = PM.ScoreSort[x][1]
           local wishList = PM:GetWishList(PM.WishListData[instanceID][encounterID][player])
@@ -309,7 +311,7 @@ function PM:UpdateFrame()
       PM.DumpFrame:AddLine(" ")
 
       index = index + 1
-      name, _, encounterID = EJ_GetEncounterInfoByIndex(index, instanceID)
+      name, _, encounterID = EJ_GetEncounterInfoByIndex(index)
     end
   end
 
@@ -357,8 +359,4 @@ function PM:CheckIfVanityItem(itemClassID, itemSubClassID)
 		end
 	end
 	return vanityItem
-end
-
-function PM:ScoreSorting(a, b)
-  return a[2] > b[2]
 end
