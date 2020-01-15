@@ -31,7 +31,8 @@ PM.PlayerData = {}
 PM.RaidData = {}
 PM.ScoreSort = {}
 PM.InstanceWhitelist = {
-  1179 -- The Eternal Palace
+  1179, -- The Eternal Palace
+  1180 -- Ny'alotha
 }
 PM.Status = {
   [0] = {id = 1, text = "N"},
