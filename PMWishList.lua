@@ -2,15 +2,17 @@ local _G = _G
 local _, PM = ...
 _G.PMWishList = PM
 
-local wipe, date, tContains, tSort, tInsert, strlen, print, tostring, pairs, select, next, hooksecurefunc = _G.wipe, _G.date, _G.tContains, _G.table.sort, _G.tinsert, _G.strlenutf8, _G.print, _G.tostring, _G.pairs, _G.select, _G.next, _G.hooksecurefunc
+local wipe, date, tContains, tSort, tInsert, strlen, print, tostring, pairs, select, next, hooksecurefunc, math = _G.wipe, _G.date, _G.tContains, _G.table.sort, _G.tinsert, _G.strlenutf8, _G.print, _G.tostring, _G.pairs, _G.select, _G.next, _G.hooksecurefunc, _G.math
 local CreateFrame = _G.CreateFrame
 local CreateTextureMarkup = _G.CreateTextureMarkup
 local NewTimer = _G.C_Timer.NewTimer
 local GameTooltip_Hide = _G.GameTooltip_Hide
 local GetItemInfo = _G.GetItemInfo
+local GetCorruption = _G.GetCorruption
 local GetInstanceInfo = _G.GetInstanceInfo
 local GetRaidRosterInfo = _G.GetRaidRosterInfo
 local GetTexCoordsForRole = _G.GetTexCoordsForRole
+local GetCorruptionResistance = _G.GetCorruptionResistance
 local UnitClass = _G.UnitClass
 local UnitInRaid = _G.UnitInRaid
 local UnitGroupRolesAssigned = _G.UnitGroupRolesAssigned
@@ -24,7 +26,7 @@ local SER = LibStub("AceSerializer-3.0")
 local COMM = LibStub("AceComm-3.0")
 local DUMP = LibStub("LibTextDump-1.0")
 
-PM.Version = 1
+PM.Version = 2
 PM.EJButtonNumber = 10
 PM.WishListData = {}
 PM.PlayerData = {}
@@ -150,11 +152,21 @@ function PM:OnAddonMessage(msg, channel, sender)
         return
       end
       if PM.WishList[payload["instanceID"]] then
+        local corruption = GetCorruption()
+        local corruptionResistance = GetCorruptionResistance()
+        local totalCorruption
+        if corruption and corruptionResistance then
+          totalCorruption = math.max(corruption - corruptionResistance, 0)
+        else
+          totalCorruption = -1
+        end
+
         local data = {["version"] = PM.Version,
                       ["command"] = "data",
                       ["instanceID"] = payload["instanceID"],
                       ["role"] = UnitGroupRolesAssigned("PLAYER"),
                       ["class"] = select(2, UnitClass("PLAYER")),
+                      ["corruption"] = totalCorruption,
                       ["data"] = PM.WishList[payload["instanceID"]]}
         COMM:SendCommMessage("PMWishList", SER:Serialize(data), "WHISPER", sender)
       end
@@ -163,7 +175,7 @@ function PM:OnAddonMessage(msg, channel, sender)
         return
       end
       if payload["version"] == PM.Version then
-        PM.PlayerData[sender] = {["role"] = payload["role"], ["class"] = payload["class"]}
+        PM.PlayerData[sender] = {["role"] = payload["role"], ["class"] = payload["class"], ["corruption"] = payload["corruption"]}
         if PM.RaidData[sender] ~= nil then
           PM.RaidData[sender] = true
         end
@@ -305,7 +317,7 @@ function PM:UpdateFrame()
           local player = PM.ScoreSort[x][1]
           local wishList = PM:GetWishList(PM.WishListData[instanceID][encounterID][player])
           if wishList then
-            PM.DumpFrame:AddLine("|c"..RAID_CLASS_COLORS[PM.PlayerData[player]["class"]].colorStr..player.."|r ||"..PM:GetRoleIcon(player, PM.PlayerData[player]["role"])..wishList)
+            PM.DumpFrame:AddLine("|c"..RAID_CLASS_COLORS[PM.PlayerData[player]["class"]].colorStr..player.."|r ||"..PM:GetRoleIcon(player, PM.PlayerData[player]["role"])..PM:GetCorruption(player).." || "..wishList)
           end
         end
       end
@@ -345,6 +357,15 @@ function PM:GetRoleIcon(name, role)
     return PM.Roles[role].."|| "
   else
     return " "
+  end
+end
+
+function PM:GetCorruption(name)
+  local corruption = PM.PlayerData[name]["corruption"]
+  if corruption >= 0 then
+    return "|cFF946DD1"..corruption.."|r"
+  else
+    return "|cFF946DD1?|r"
   end
 end
 
