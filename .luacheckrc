@@ -1,4 +1,4 @@
-globals = {'LibStub', 'SLASH_PMWL1', 'RAID_CLASS_COLORS', 'MAX_RAID_MEMBERS'}
-ignore = {'self'}
+globals = {'LibStub'}
+ignore = {'self', '532', '542'}
 max_line_length = false
 self = false
