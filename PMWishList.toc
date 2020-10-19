@@ -7,5 +7,6 @@
 ## X-Website: https://www.curseforge.com/wow/addons/pm-wishlist
 ## X-Curse-Project-ID: 356943
 
+TaintLess.xml
 Embeds.xml
 PMWishList.xml
