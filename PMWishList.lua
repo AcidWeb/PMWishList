@@ -5,14 +5,13 @@ _G.PMWishList = PM
 local wipe, tContains, tInsert, print, tostring, pairs, select, next, hooksecurefunc = _G.wipe, _G.tContains, _G.tinsert, _G.print, _G.tostring, _G.pairs, _G.select, _G.next, _G.hooksecurefunc
 local Item = _G.Item
 local CreateFrame = _G.CreateFrame
-local CreateTextureMarkup = _G.CreateTextureMarkup
 local CreateAtlasMarkup = _G.CreateAtlasMarkup
+local CreateTextureMarkup = _G.CreateTextureMarkup
 local NewTimer = _G.C_Timer.NewTimer
-local GameTooltip_Hide = _G.GameTooltip_Hide
 local GetItemInfo = _G.GetItemInfo
 local GetTexCoordsForRole = _G.GetTexCoordsForRole
-local GetItemInventorySlotInfo = _G.GetItemInventorySlotInfo
 local GetActiveCovenantID = _G.C_Covenants.GetActiveCovenantID
+local GetItemInventorySlotInfo = _G.GetItemInventorySlotInfo
 local UnitClass = _G.UnitClass
 local UnitInRaid = _G.UnitInRaid
 local UnitGroupRolesAssigned = _G.UnitGroupRolesAssigned
@@ -117,15 +116,14 @@ function PM:OnEvent(self, event, ...)
   end
 end
 
-function PM.OnClick()
-  if PM.TableFilter then
-    PM.GUI.Button:SetText("Displaying entire guild")
-    PM.Table:SetFilter(function() return true end)
-  else
-    PM.GUI.Button:SetText("Displaying raid members only")
-    PM.Table:SetFilter(PM.CustomFilter)
-  end
+function PM:OnClick()
   PM.TableFilter = not PM.TableFilter
+  if PM.TableFilter then
+    PM.GUI.Button:SetText("Displaying raid members only")
+  else
+    PM.GUI.Button:SetText("Displaying entire guild")
+  end
+  PM.Table:SetFilter(PM.CustomFilter)
 end
 
 function PM:SetupGUI()
@@ -174,16 +172,16 @@ function PM:SetupGUI()
     index = index + 1
     name, _, encounterID = EJ_GetEncounterInfoByIndex(index)
   end
-  local bossNumber = index - 1
+  local bossIndex = index - 1
   for k, v in pairs(tableStructure) do
-    v["comparesort"] = function (self, rowa, rowb, sortbycol) return PM:CustomSort(self, rowa, rowb, sortbycol, k + bossNumber + 1) end
+    v["comparesort"] = function (self, rowa, rowb, sortbycol) return PM:CustomSort(self, rowa, rowb, sortbycol, k + bossIndex + 1) end
   end
 
   PM.GUI:SetHeight(485)
-  PM.GUI:SetWidth(bossNumber * 75 + 100 + 60)
+  PM.GUI:SetWidth(bossIndex * 75 + 100 + 60)
   PM.GUI.Button:SetWidth(PM.GUI.frame:GetWidth() - 25)
   PM.Table = ST:CreateST(tableStructure, 25, nil, nil, PM.GUI.frame)
-  PM.Table.bossIndex = bossNumber
+  PM.Table.bossIndex = bossIndex
   PM.Table:RegisterEvents({
 		["OnClick"] = function (_, cell, _, _, _, row, column, _, button, _)
       if row ~= nil and button == "LeftButton" and PM.Tooltip == nil and string.find(cell.text:GetText(), "/") then
@@ -314,18 +312,28 @@ function PM:AddButton(frame)
     button:SetText(PM.Status[4]["text"])
     button:SetCallback("OnClick", function() PM:SetStatus(button, frame.encounterID, frame.itemID) end)
     button:SetCallback("OnEnter", function()
-                                            _G.GameTooltip:SetOwner(button.frame, "ANCHOR_RIGHT")
-                                            _G.GameTooltip:AddLine("N - Need")
-                                            _G.GameTooltip:AddLine("I need this item for my main spec.", 1, 1, 1, false, 20)
-                                            _G.GameTooltip:AddLine("G - Greed")
-                                            _G.GameTooltip:AddLine("I need this item for my off spec.", 1, 1, 1, false, 20)
-                                            _G.GameTooltip:AddLine("U - Upgrade")
-                                            _G.GameTooltip:AddLine("I already have this item but want another version.", 1, 1, 1, false, 20)
-                                            _G.GameTooltip:AddLine("T - Transmog")
-                                            _G.GameTooltip:AddLine("I only need this item for transmog.", 1, 1, 1, false, 20)
-                                            _G.GameTooltip:Show()
-                                  end)
-    button:SetCallback("OnLeave", function() GameTooltip_Hide() end)
+      PM.Tooltip = QTIP:Acquire("PMWishListTooltip", 1, "LEFT")
+      PM.Tooltip:AddHeader("N - Need")
+      PM.Tooltip:AddLine("   I need this item for my main spec.")
+      PM.Tooltip:AddHeader("G - Greed")
+      PM.Tooltip:AddLine("   I need this item for my off spec.")
+      PM.Tooltip:AddHeader("U - Upgrade")
+      PM.Tooltip:AddLine("   I already have this item but want another version.")
+      PM.Tooltip:AddHeader("T - Transmog")
+      PM.Tooltip:AddLine("   I only need this item for transmog.")
+      PM.Tooltip:SetLineTextColor(1, _G.DARKYELLOW_FONT_COLOR.r, _G.DARKYELLOW_FONT_COLOR.g, _G.DARKYELLOW_FONT_COLOR.b, 1)
+      PM.Tooltip:SetLineTextColor(3, _G.DARKYELLOW_FONT_COLOR.r, _G.DARKYELLOW_FONT_COLOR.g, _G.DARKYELLOW_FONT_COLOR.b, 1)
+      PM.Tooltip:SetLineTextColor(5, _G.DARKYELLOW_FONT_COLOR.r, _G.DARKYELLOW_FONT_COLOR.g, _G.DARKYELLOW_FONT_COLOR.b, 1)
+      PM.Tooltip:SetLineTextColor(7, _G.DARKYELLOW_FONT_COLOR.r, _G.DARKYELLOW_FONT_COLOR.g, _G.DARKYELLOW_FONT_COLOR.b, 1)
+      PM.Tooltip:SmartAnchorTo(button.frame)
+      PM.Tooltip:Show()
+    end)
+    button:SetCallback("OnLeave", function()
+      if PM.Tooltip ~= nil then
+        QTIP:Release(PM.Tooltip)
+        PM.Tooltip = nil
+      end
+    end)
     button.frame:SetParent(frame.PMWLHolder)
     button.frame:SetPoint("CENTER", 75, 0)
     button.frame:Show()
@@ -438,7 +446,11 @@ function PM:CheckIfVanityItem(itemClassID, itemSubClassID)
 end
 
 function PM:CustomFilter(rowdata)
-  return UnitInRaid(rowdata[12])
+  if PM.TableFilter then
+    return UnitInRaid(rowdata[PM.Table.bossIndex + 2])
+  else
+    return true
+  end
 end
 
 function PM:CustomSort(obj, rowa, rowb, sortbycol, fieldID)
