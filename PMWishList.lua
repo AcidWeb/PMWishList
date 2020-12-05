@@ -403,18 +403,10 @@ function PM:CheckIfVanityItem(itemClassID, itemSubClassID)
 		if itemSubClassID == 0 then -- Quest
 			vanityItem = true
     end
-  elseif itemClassID == 5 then -- Reagent
-		if itemSubClassID == 2 then -- Conduit
-			vanityItem = true
-    end
   elseif itemClassID == 1 then -- Container
 		if itemSubClassID == 0 then -- Bag
 			vanityItem = true
     end
-	elseif itemClassID == 0 then -- Consumable
-		if itemSubClassID == 8 then -- Other
-			vanityItem = true
-		end
 	end
 	return vanityItem
 end
