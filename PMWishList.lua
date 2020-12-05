@@ -3,6 +3,7 @@ local _, PM = ...
 _G.PMWishList = PM
 
 local wipe, tContains, tInsert, print, tostring, pairs, select, next, hooksecurefunc = _G.wipe, _G.tContains, _G.tinsert, _G.print, _G.tostring, _G.pairs, _G.select, _G.next, _G.hooksecurefunc
+local Item = _G.Item
 local CreateFrame = _G.CreateFrame
 local CreateTextureMarkup = _G.CreateTextureMarkup
 local CreateAtlasMarkup = _G.CreateAtlasMarkup
@@ -10,6 +11,7 @@ local NewTimer = _G.C_Timer.NewTimer
 local GameTooltip_Hide = _G.GameTooltip_Hide
 local GetItemInfo = _G.GetItemInfo
 local GetTexCoordsForRole = _G.GetTexCoordsForRole
+local GetItemInventorySlotInfo = _G.GetItemInventorySlotInfo
 local GetActiveCovenantID = _G.C_Covenants.GetActiveCovenantID
 local UnitClass = _G.UnitClass
 local UnitInRaid = _G.UnitInRaid
@@ -22,7 +24,7 @@ local ST = LibStub("ScrollingTable")
 local GUI = LibStub("AceGUI-3.0")
 local SER = LibStub("AceSerializer-3.0")
 local COMM = LibStub("AceComm-3.0")
---local QTIP = LibStub("LibQTip-1.0")
+local QTIP = LibStub("LibQTip-1.0")
 
 PM.Version = 3
 PM.EJButtonNumber = 10
@@ -34,10 +36,10 @@ PM.InstanceWhitelist = {
   1190 -- Castle Nathria
 }
 PM.Status = {
-  [0] = {id = 1, text = "N"},
-  [1] = {id = 2, text = "G"},
-  [2] = {id = 3, text = "U"},
-  [3] = {id = 4, text = "T"},
+  [0] = {id = 1, text = "N", textFull = _G.NEED},
+  [1] = {id = 2, text = "G", textFull = _G.GREED},
+  [2] = {id = 3, text = "U", textFull = _G.UPGRADE},
+  [3] = {id = 4, text = "T", textFull = "Transmog"},
   [4] = {id = 0, text = "-"}
 }
 PM.StatusScore = {
@@ -161,7 +163,8 @@ function PM:SetupGUI()
     local column = {
       ["name"] = name,
       ["width"] = 75,
-      ["align"] = "CENTER"
+      ["align"] = "CENTER",
+      ["encounterID"] = encounterID
     }
     if colorToggle then
       column["bgcolor"] = {["r"] = 0.15, ["g"] = 0.15, ["b"] = 0.15, ["a"] = 1.0}
@@ -173,13 +176,36 @@ function PM:SetupGUI()
   end
   local bossNumber = index - 1
   for k, v in pairs(tableStructure) do
-    v["comparesort"] = function (self, rowa, rowb, sortbycol) return PM:CustomSort(self, rowa, rowb, sortbycol, k + bossNumber) end
+    v["comparesort"] = function (self, rowa, rowb, sortbycol) return PM:CustomSort(self, rowa, rowb, sortbycol, k + bossNumber + 1) end
   end
 
   PM.GUI:SetHeight(485)
   PM.GUI:SetWidth(bossNumber * 75 + 100 + 60)
   PM.GUI.Button:SetWidth(PM.GUI.frame:GetWidth() - 25)
   PM.Table = ST:CreateST(tableStructure, 25, nil, nil, PM.GUI.frame)
+  PM.Table.bossIndex = bossNumber
+  PM.Table:RegisterEvents({
+		["OnClick"] = function (_, cell, _, _, _, row, column, _, button, _)
+      if row ~= nil and button == "LeftButton" and PM.Tooltip == nil and string.find(cell.text:GetText(), "/") then
+        local payload = PM.WishListData[PM.InstanceWhitelist[#PM.InstanceWhitelist]][PM.Table.cols[column].encounterID][PM.Table.data[row][2 + PM.Table.bossIndex]]["Items"]
+        PM.Tooltip = QTIP:Acquire("PMWishListTooltip", 4, "CENTER", "CENTER", "CENTER", "CENTER")
+        for itemID, status in pairs(payload) do
+          local item = Item:CreateFromItemID(itemID)
+          item:ContinueOnItemLoad(function()
+            PM.Tooltip:AddLine("|T"..item:GetItemIcon()..":32|t", item:GetItemLink(), GetItemInventorySlotInfo(item:GetInventoryType()), PM.Status[status - 1].textFull)
+          end)
+        end
+        PM.Tooltip:SmartAnchorTo(cell)
+        PM.Tooltip:Show()
+			end
+    end,
+    ["OnLeave"] = function (_, _, _, _, _, row, _)
+			if row ~= nil and PM.Tooltip ~= nil then
+				QTIP:Release(PM.Tooltip)
+        PM.Tooltip = nil
+			end
+		end,
+	})
   PM.Table.cols[1].sort = ST.SORT_ASC
   if _G.AddOnSkins then
     local f = PM.Table.frame
