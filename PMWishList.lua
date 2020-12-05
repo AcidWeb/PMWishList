@@ -9,6 +9,7 @@ local CreateAtlasMarkup = _G.CreateAtlasMarkup
 local CreateTextureMarkup = _G.CreateTextureMarkup
 local NewTimer = _G.C_Timer.NewTimer
 local GetItemInfo = _G.GetItemInfo
+local GetServerTime = _G.GetServerTime
 local GetTexCoordsForRole = _G.GetTexCoordsForRole
 local GetActiveCovenantID = _G.C_Covenants.GetActiveCovenantID
 local GetItemInventorySlotInfo = _G.GetItemInventorySlotInfo
@@ -27,8 +28,6 @@ local QTIP = LibStub("LibQTip-1.0")
 
 PM.Version = 3
 PM.EJButtonNumber = 10
-PM.WishListData = {}
-PM.PlayerData = {}
 PM.TableData = {}
 PM.TableFilter = false
 PM.InstanceWhitelist = {
@@ -71,7 +70,11 @@ function PM:OnEvent(self, event, ...)
       if not _G.PMWishListData then
         _G.PMWishListData = {}
       end
+      if not _G.PMWishListDB then
+        _G.PMWishListDB = {["Players"] = {}, ["Lists"] = {}}
+      end
       PM.WishList = _G.PMWishListData
+      PM.WishListDB = _G.PMWishListDB
       for i, _ in pairs(PM.WishList) do
         for j, _ in pairs(PM.WishList[i]) do
           for k, v in pairs(PM.WishList[i][j]) do
@@ -89,8 +92,6 @@ function PM:OnEvent(self, event, ...)
       end
 
       _G.SlashCmdList["PMWL"] = function(_)
-        wipe(PM.WishListData)
-        wipe(PM.PlayerData)
         wipe(PM.TableData)
         local data = {["version"] = PM.Version,
                       ["command"] = "request",
@@ -185,7 +186,7 @@ function PM:SetupGUI()
   PM.Table:RegisterEvents({
 		["OnClick"] = function (_, cell, _, _, _, row, column, _, button, _)
       if row ~= nil and button == "LeftButton" and PM.Tooltip == nil and string.find(cell.text:GetText(), "/") then
-        local payload = PM.WishListData[PM.InstanceWhitelist[#PM.InstanceWhitelist]][PM.Table.cols[column].encounterID][PM.Table.data[row][2 + PM.Table.bossIndex]]["Items"]
+        local payload = PM.WishListDB.Lists[PM.InstanceWhitelist[#PM.InstanceWhitelist]][PM.Table.cols[column].encounterID][PM.Table.data[row][2 + PM.Table.bossIndex]]["Items"]
         PM.Tooltip = QTIP:Acquire("PMWishListTooltip", 4, "CENTER", "CENTER", "CENTER", "CENTER")
         for itemID, status in pairs(payload) do
           local item = Item:CreateFromItemID(itemID)
@@ -204,7 +205,7 @@ function PM:SetupGUI()
 			end
 		end,
 	})
-  PM.Table.cols[1].sort = ST.SORT_ASC
+  PM.Table.cols[1].sort = ST.SORT_DSC
   if _G.AddOnSkins then
     local f = PM.Table.frame
     _G.AddOnSkins[1]:SkinFrame(f, nil, true)
@@ -212,9 +213,7 @@ function PM:SetupGUI()
     _G.AddOnSkins[1]:SkinScrollBar(_G[f:GetName().."ScrollFrameScrollBar"])
   end
   PM.Table.frame:ClearAllPoints()
-	PM.Table.frame:SetPoint("CENTER", PM.GUI.frame, "CENTER", 0, -35)
-  PM.Table:Hide()
-  PM.Table:Show()
+  PM.Table.frame:SetPoint("CENTER", PM.GUI.frame, "CENTER", 0, -35)
 end
 
 function PM:UpdateTable()
@@ -222,7 +221,7 @@ function PM:UpdateTable()
   local instanceID = PM.InstanceWhitelist[#PM.InstanceWhitelist]
   EJ_SelectInstance(instanceID)
 
-  for player, data in pairs(PM.PlayerData) do
+  for player, data in pairs(PM.WishListDB.Players) do
     row = {}
     tInsert(row, "|c".._G.RAID_CLASS_COLORS[data["class"]].colorStr..player.."|r"..PM:GetCovenantIcon(data["covenant"])..PM:GetRoleIcon(player, data["role"]))
     local index = 1
@@ -272,22 +271,23 @@ function PM:OnAddonMessage(msg, channel, sender)
         return
       end
       if payload["version"] == PM.Version then
-        PM.PlayerData[sender] = {["role"] = payload["role"], ["class"] = payload["class"], ["covenant"] = payload["covenant"]}
-        if not PM.WishListData[payload["instanceID"]] then
-          PM.WishListData[payload["instanceID"]] = {}
+        PM.WishListDB.Players[sender] = {["role"] = payload["role"], ["class"] = payload["class"], ["covenant"] = payload["covenant"], ["timestamp"] = GetServerTime()}
+        if not PM.WishListDB.Lists[payload["instanceID"]] then
+          PM.WishListDB.Lists[payload["instanceID"]] = {}
         end
         for i, _ in pairs(payload["data"]) do
-          if not PM.WishListData[payload["instanceID"]][i] then
-            PM.WishListData[payload["instanceID"]][i] = {}
+          if not PM.WishListDB.Lists[payload["instanceID"]][i] then
+            PM.WishListDB.Lists[payload["instanceID"]][i] = {}
           end
+          PM.WishListDB.Lists[payload["instanceID"]][i][sender] = nil
           for itemID, k in pairs(payload["data"][i]) do
             if k > 0 then
-              if not PM.WishListData[payload["instanceID"]][i][sender] then
-                PM.WishListData[payload["instanceID"]][i][sender] = {[1] = 0, [2] = 0, [3] = 0, [4] = 0, ["Score"] = 0, ["Items"] = {}}
+              if not PM.WishListDB.Lists[payload["instanceID"]][i][sender] then
+                PM.WishListDB.Lists[payload["instanceID"]][i][sender] = {[1] = 0, [2] = 0, [3] = 0, [4] = 0, ["Score"] = 0, ["Items"] = {}}
               end
-              PM.WishListData[payload["instanceID"]][i][sender][k] = PM.WishListData[payload["instanceID"]][i][sender][k] + 1
-              PM.WishListData[payload["instanceID"]][i][sender]["Score"] = PM.WishListData[payload["instanceID"]][i][sender]["Score"] + PM.StatusScore[k]
-              PM.WishListData[payload["instanceID"]][i][sender]["Items"][itemID] = k
+              PM.WishListDB.Lists[payload["instanceID"]][i][sender][k] = PM.WishListDB.Lists[payload["instanceID"]][i][sender][k] + 1
+              PM.WishListDB.Lists[payload["instanceID"]][i][sender]["Score"] = PM.WishListDB.Lists[payload["instanceID"]][i][sender]["Score"] + PM.StatusScore[k]
+              PM.WishListDB.Lists[payload["instanceID"]][i][sender]["Items"][itemID] = k
             end
           end
         end
@@ -395,10 +395,10 @@ function PM:SetStatus(button, encounterID, itemID)
 end
 
 function PM:GetWishList(instanceID, encounterID, player, raw)
-  if PM.WishListData[instanceID] then
-    if PM.WishListData[instanceID][encounterID] then
-      if PM.WishListData[instanceID][encounterID][player] then
-        local data = PM.WishListData[instanceID][encounterID][player]
+  if PM.WishListDB.Lists[instanceID] then
+    if PM.WishListDB.Lists[instanceID][encounterID] then
+      if PM.WishListDB.Lists[instanceID][encounterID][player] then
+        local data = PM.WishListDB.Lists[instanceID][encounterID][player]
         return raw and data["Score"] or tostring(data[1]).."/"..tostring(data[2]).."/"..tostring(data[3]).."/"..tostring(data[4])
       else
         return raw and 0 or "-"

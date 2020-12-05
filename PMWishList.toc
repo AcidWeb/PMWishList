@@ -3,7 +3,7 @@
 ## Notes: Raid loot wishlist implementation for Primori Morte.
 ## Version: 2.0.0
 ## Author: AcidWeb
-## SavedVariablesPerCharacter: PMWishListData
+## SavedVariablesPerCharacter: PMWishListData, PMWishListDB
 ## X-Website: https://www.curseforge.com/wow/addons/pm-wishlist
 ## X-Curse-Project-ID: 356943
 
