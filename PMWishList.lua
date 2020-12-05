@@ -2,35 +2,34 @@ local _G = _G
 local _, PM = ...
 _G.PMWishList = PM
 
-local wipe, date, tContains, tSort, tInsert, strlen, print, tostring, pairs, select, next, hooksecurefunc = _G.wipe, _G.date, _G.tContains, _G.table.sort, _G.tinsert, _G.strlenutf8, _G.print, _G.tostring, _G.pairs, _G.select, _G.next, _G.hooksecurefunc
+local wipe, tContains, tInsert, print, tostring, pairs, select, next, hooksecurefunc = _G.wipe, _G.tContains, _G.tinsert, _G.print, _G.tostring, _G.pairs, _G.select, _G.next, _G.hooksecurefunc
 local CreateFrame = _G.CreateFrame
 local CreateTextureMarkup = _G.CreateTextureMarkup
+local CreateAtlasMarkup = _G.CreateAtlasMarkup
 local NewTimer = _G.C_Timer.NewTimer
 local GameTooltip_Hide = _G.GameTooltip_Hide
 local GetItemInfo = _G.GetItemInfo
-local GetInstanceInfo = _G.GetInstanceInfo
-local GetRaidRosterInfo = _G.GetRaidRosterInfo
 local GetTexCoordsForRole = _G.GetTexCoordsForRole
 local GetActiveCovenantID = _G.C_Covenants.GetActiveCovenantID
 local UnitClass = _G.UnitClass
 local UnitInRaid = _G.UnitInRaid
 local UnitGroupRolesAssigned = _G.UnitGroupRolesAssigned
 local EJ_GetEncounterInfoByIndex = _G.EJ_GetEncounterInfoByIndex
-local EJ_GetInstanceInfo = _G.EJ_GetInstanceInfo
 local EJ_InstanceIsRaid = _G.EJ_InstanceIsRaid
 local EJ_SelectInstance = _G.EJ_SelectInstance
 
+local ST = LibStub("ScrollingTable")
 local GUI = LibStub("AceGUI-3.0")
 local SER = LibStub("AceSerializer-3.0")
 local COMM = LibStub("AceComm-3.0")
-local DUMP = LibStub("LibTextDump-1.0")
+--local QTIP = LibStub("LibQTip-1.0")
 
 PM.Version = 3
 PM.EJButtonNumber = 10
 PM.WishListData = {}
 PM.PlayerData = {}
-PM.RaidData = {}
-PM.ScoreSort = {}
+PM.TableData = {}
+PM.TableFilter = false
 PM.InstanceWhitelist = {
   1190 -- Castle Nathria
 }
@@ -51,6 +50,12 @@ PM.Roles = {
   ["TANK"] = CreateTextureMarkup([[Interface\LFGFrame\UI-LFG-ICON-ROLES]], 256, 256, 0, 0, GetTexCoordsForRole("TANK")),
   ["HEALER"] = CreateTextureMarkup([[Interface\LFGFrame\UI-LFG-ICON-ROLES]], 256, 256, 0, 0, GetTexCoordsForRole("HEALER")),
   ["DAMAGER"] = CreateTextureMarkup([[Interface\LFGFrame\UI-LFG-ICON-ROLES]], 256, 256, 0, 0, GetTexCoordsForRole("DAMAGER"))
+}
+PM.Covenants = {
+  [1] = CreateAtlasMarkup("covenantchoice-panel-sigil-kyrian"),
+  [2] = CreateAtlasMarkup("covenantchoice-panel-sigil-venthyr"),
+  [3] = CreateAtlasMarkup("covenantchoice-panel-sigil-nightfae"),
+  [4] = CreateAtlasMarkup("covenantchoice-panel-sigil-necrolords")
 }
 
 _G.SLASH_PMWL1 = "/pmwl"
@@ -82,42 +87,14 @@ function PM:OnEvent(self, event, ...)
         end
       end
 
-      _G.SlashCmdList["PMWL"] = function(msg)
+      _G.SlashCmdList["PMWL"] = function(_)
         wipe(PM.WishListData)
         wipe(PM.PlayerData)
-        wipe(PM.RaidData)
-
-        local target = "GUILD"
-        if UnitInRaid("PLAYER") then
-          target = "RAID"
-          for i = 1, _G.MAX_RAID_MEMBERS do
-            local name = GetRaidRosterInfo(i)
-            if name then
-              PM.RaidData[name] = false
-            end
-          end
-        end
-        if msg == "all" then
-          target = "GUILD"
-        end
-        local _, type, _, _, _, _, _, instanceID = GetInstanceInfo()
-        if not type == "raid" or not tContains(PM.InstanceWhitelist, instanceID) then
-          instanceID = PM.InstanceWhitelist[#PM.InstanceWhitelist]
-        end
+        wipe(PM.TableData)
         local data = {["version"] = PM.Version,
                       ["command"] = "request",
-                      ["instanceID"] = instanceID}
-        COMM:SendCommMessage("PMWishList", SER:Serialize(data), target)
-      end
-
-      PM.DumpFrame = DUMP:New("|cFFF2E699PM|r WishList")
-      if _G.AddOnSkins then
-        local f = DUMP.frames[PM.DumpFrame]:GetName()
-        _G.AddOnSkins[1]:SkinFrame(_G[f])
-        _G.AddOnSkins[1]:CreateBackdrop(_G[f].scrollArea)
-        _G.AddOnSkins[1]:SetOutside(_G[f].scrollArea.Backdrop, _G[f].scrollArea, 4, 4)
-        _G.AddOnSkins[1]:SkinCloseButton(_G[f.."Close"])
-        _G.AddOnSkins[1]:SkinScrollBar(_G[f].scrollArea.ScrollBar)
+                      ["instanceID"] = PM.InstanceWhitelist[#PM.InstanceWhitelist]}
+        COMM:SendCommMessage("PMWishList", SER:Serialize(data), "GUILD")
       end
 
       COMM:RegisterComm("PMWishList", PM.OnAddonMessage)
@@ -138,11 +115,118 @@ function PM:OnEvent(self, event, ...)
   end
 end
 
+function PM.OnClick()
+  if PM.TableFilter then
+    PM.GUI.Button:SetText("Displaying entire guild")
+    PM.Table:SetFilter(function() return true end)
+  else
+    PM.GUI.Button:SetText("Displaying raid members only")
+    PM.Table:SetFilter(PM.CustomFilter)
+  end
+  PM.TableFilter = not PM.TableFilter
+end
+
+function PM:SetupGUI()
+  if PM.Table then
+    PM.GUI:Show()
+    return
+  end
+
+  PM.GUI = GUI:Create("Window")
+  PM.GUI:SetTitle("PM WishList")
+  PM.GUI:EnableResize(false)
+  PM.GUI.Button = GUI:Create("Button")
+  PM.GUI.Button:SetText("Displaying entire guild")
+  PM.GUI.Button:SetCallback("OnClick", PM.OnClick)
+  PM.GUI:AddChild(PM.GUI.Button)
+
+  EJ_SelectInstance(PM.InstanceWhitelist[#PM.InstanceWhitelist])
+  local tableStructure = {
+    {
+      ["name"] = _G.NAME,
+      ["width"] = 100,
+      ["bgcolor"] = {
+        ["r"] = 0.15,
+        ["g"] = 0.15,
+        ["b"] = 0.15,
+        ["a"] = 1.0
+      },
+      ["align"] = "LEFT"
+    }
+  }
+  local index = 1
+  local name, _, encounterID = EJ_GetEncounterInfoByIndex(index)
+  local colorToggle = false
+  while encounterID do
+    local column = {
+      ["name"] = name,
+      ["width"] = 75,
+      ["align"] = "CENTER"
+    }
+    if colorToggle then
+      column["bgcolor"] = {["r"] = 0.15, ["g"] = 0.15, ["b"] = 0.15, ["a"] = 1.0}
+    end
+    colorToggle = not colorToggle
+    tInsert(tableStructure, column)
+    index = index + 1
+    name, _, encounterID = EJ_GetEncounterInfoByIndex(index)
+  end
+  local bossNumber = index - 1
+  for k, v in pairs(tableStructure) do
+    v["comparesort"] = function (self, rowa, rowb, sortbycol) return PM:CustomSort(self, rowa, rowb, sortbycol, k + bossNumber) end
+  end
+
+  PM.GUI:SetHeight(485)
+  PM.GUI:SetWidth(bossNumber * 75 + 100 + 60)
+  PM.GUI.Button:SetWidth(PM.GUI.frame:GetWidth() - 25)
+  PM.Table = ST:CreateST(tableStructure, 25, nil, nil, PM.GUI.frame)
+  PM.Table.cols[1].sort = ST.SORT_ASC
+  if _G.AddOnSkins then
+    local f = PM.Table.frame
+    _G.AddOnSkins[1]:SkinFrame(f, nil, true)
+    _G.AddOnSkins[1]:StripTextures(_G[f:GetName().."ScrollTrough"], true)
+    _G.AddOnSkins[1]:SkinScrollBar(_G[f:GetName().."ScrollFrameScrollBar"])
+  end
+  PM.Table.frame:ClearAllPoints()
+	PM.Table.frame:SetPoint("CENTER", PM.GUI.frame, "CENTER", 0, -35)
+  PM.Table:Hide()
+  PM.Table:Show()
+end
+
+function PM:UpdateTable()
+  local row
+  local instanceID = PM.InstanceWhitelist[#PM.InstanceWhitelist]
+  EJ_SelectInstance(instanceID)
+
+  for player, data in pairs(PM.PlayerData) do
+    row = {}
+    tInsert(row, "|c".._G.RAID_CLASS_COLORS[data["class"]].colorStr..player.."|r"..PM:GetCovenantIcon(data["covenant"])..PM:GetRoleIcon(player, data["role"]))
+    local index = 1
+    local encounterID = select(3, EJ_GetEncounterInfoByIndex(index))
+    while encounterID do
+      tInsert(row, PM:GetWishList(instanceID, encounterID, player, false))
+      index = index + 1
+      encounterID = select(3, EJ_GetEncounterInfoByIndex(index))
+    end
+    tInsert(row, player)
+    index = 1
+    encounterID = select(3, EJ_GetEncounterInfoByIndex(index))
+    while encounterID do
+      tInsert(row, PM:GetWishList(instanceID, encounterID, player, true))
+      index = index + 1
+      encounterID = select(3, EJ_GetEncounterInfoByIndex(index))
+    end
+    tInsert(PM.TableData, row)
+  end
+
+  PM.Table:SetData(PM.TableData, true)
+end
+
 function PM:OnAddonMessage(msg, channel, sender)
   local status, payload = SER:Deserialize(msg)
   if status then
     if payload["command"] == "request" then
-      if channel ~= "RAID" and channel ~= "GUILD" then
+      if channel ~= "GUILD" then
         return
       end
       if payload["version"] > PM.Version then
@@ -165,9 +249,6 @@ function PM:OnAddonMessage(msg, channel, sender)
       end
       if payload["version"] == PM.Version then
         PM.PlayerData[sender] = {["role"] = payload["role"], ["class"] = payload["class"], ["covenant"] = payload["covenant"]}
-        if PM.RaidData[sender] ~= nil then
-          PM.RaidData[sender] = true
-        end
         if not PM.WishListData[payload["instanceID"]] then
           PM.WishListData[payload["instanceID"]] = {}
         end
@@ -189,7 +270,7 @@ function PM:OnAddonMessage(msg, channel, sender)
         if PM.Timer then
           PM.Timer:Cancel()
         end
-        PM.Timer = NewTimer(1, PM.UpdateFrame)
+        PM.Timer = NewTimer(1, function() PM:SetupGUI(); PM:UpdateTable() end)
       end
     end
   end
@@ -279,73 +360,36 @@ function PM:SetStatus(button, encounterID, itemID)
   PM.WishList[instanceID][encounterID][itemID] = status["id"]
 end
 
-function PM:UpdateFrame()
-  PM.DumpFrame:Clear()
-
-  local _, type, _, _, _, _, _, instanceID = GetInstanceInfo()
-  if not type == "raid" or not tContains(PM.InstanceWhitelist, instanceID) then
-    instanceID = PM.InstanceWhitelist[#PM.InstanceWhitelist]
-  end
-  EJ_SelectInstance(instanceID)
-  local instanceName = EJ_GetInstanceInfo()
-  PM.DumpFrame:AddLine("|cFFF2E699~~ "..instanceName.." || "..date("%m/%d/%y %H:%M:%S").." ~~|r")
-  PM.DumpFrame:AddLine(" ")
-
+function PM:GetWishList(instanceID, encounterID, player, raw)
   if PM.WishListData[instanceID] then
-    local index = 1
-    local name, _, encounterID = EJ_GetEncounterInfoByIndex(index)
-    while encounterID do
-      PM.DumpFrame:AddLine("|cFFFF0000- "..name.." -|r")
-      if PM.WishListData[instanceID][encounterID] then
-        wipe(PM.ScoreSort)
-        for player, data in pairs(PM.WishListData[instanceID][encounterID]) do
-          tInsert(PM.ScoreSort, {player, data["Score"]})
-        end
-        tSort(PM.ScoreSort, function(a, b) return a[2] > b[2] end)
-        for x=1, #PM.ScoreSort do
-          local player = PM.ScoreSort[x][1]
-          local wishList = PM:GetWishList(PM.WishListData[instanceID][encounterID][player])
-          if wishList then
-            PM.DumpFrame:AddLine("|c".._G.RAID_CLASS_COLORS[PM.PlayerData[player]["class"]].colorStr..player.."|r ||"..PM:GetRoleIcon(player, PM.PlayerData[player]["role"]).." || "..wishList)
-          end
-        end
+    if PM.WishListData[instanceID][encounterID] then
+      if PM.WishListData[instanceID][encounterID][player] then
+        local data = PM.WishListData[instanceID][encounterID][player]
+        return raw and data["Score"] or tostring(data[1]).."/"..tostring(data[2]).."/"..tostring(data[3]).."/"..tostring(data[4])
+      else
+        return raw and 0 or "-"
       end
-      PM.DumpFrame:AddLine(" ")
-
-      index = index + 1
-      name, _, encounterID = EJ_GetEncounterInfoByIndex(index)
+    else
+      return raw and 0 or "-"
     end
-  end
-
-  if UnitInRaid("PLAYER") then
-    PM.DumpFrame:AddLine(" ")
-    PM.DumpFrame:AddLine("|cFFFFFF00In raid but with an empty wish list or outdated/missing addon:|r")
-    local payload = " "
-    for name, response in pairs(PM.RaidData) do
-      if not response then
-        payload = payload..name..", "
-      end
-    end
-    if strlen(payload) > 1 then
-      payload = payload:sub(1, -3)
-    end
-    PM.DumpFrame:AddLine(payload)
-  end
-
-  PM.DumpFrame:Display()
-end
-
-function PM:GetWishList(data)
-  if data["Score"] > 0 then
-    return tostring(data[1]).."/"..tostring(data[2]).."/"..tostring(data[3]).."/"..tostring(data[4])
+  else
+    return raw and 0 or "-"
   end
 end
 
 function PM:GetRoleIcon(name, role)
-  if PM.RaidData[name] ~= nil and role ~= "NONE" then
-    return PM.Roles[role].."|| "
+  if UnitInRaid(name) and role ~= "NONE" then
+    return " "..PM.Roles[role]
   else
-    return " "
+    return ""
+  end
+end
+
+function PM:GetCovenantIcon(covenant)
+  if covenant and covenant > 0 then
+    return " "..PM.Covenants[covenant]
+  else
+    return ""
   end
 end
 
@@ -373,4 +417,24 @@ function PM:CheckIfVanityItem(itemClassID, itemSubClassID)
 		end
 	end
 	return vanityItem
+end
+
+function PM:CustomFilter(rowdata)
+  return UnitInRaid(rowdata[12])
+end
+
+function PM:CustomSort(obj, rowa, rowb, sortbycol, fieldID)
+	local column = obj.cols[sortbycol]
+	local direction = column.sort or column.defaultsort or ST.SORT_ASC
+  local rowA = obj.data[rowa][fieldID]
+  local rowB = obj.data[rowb][fieldID]
+	if rowA == rowB then
+		return false
+	else
+		if direction == ST.SORT_ASC then
+			return rowA > rowB
+		else
+			return rowA < rowB
+		end
+	end
 end

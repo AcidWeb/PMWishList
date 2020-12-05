@@ -3,21 +3,24 @@ enable-nolib-creation: no
 externals:
   Libs/LibStub: https://repos.wowace.com/wow/ace3/trunk/LibStub
   Libs/CallbackHandler-1.0: https://repos.wowace.com/wow/ace3/trunk/CallbackHandler-1.0
-  Libs/LibTextDump-1.0: https://repos.wowace.com/wow/libtextdump-1-0
   Libs/AceGUI-3.0: https://repos.wowace.com/wow/ace3/trunk/AceGUI-3.0
   Libs/AceComm-3.0: https://repos.wowace.com/wow/ace3/trunk/AceComm-3.0
   Libs/AceSerializer-3.0: https://repos.wowace.com/wow/ace3/trunk/AceSerializer-3.0
   Libs/LibGuildPositions-1.0: https://repos.curseforge.com/wow/libguildpositions-1-0/trunk
+  Libs/LibScrollingTable: https://github.com/ddumont/lib-st.git
+  Libs/LibQTip-1.0: https://repos.wowace.com/wow/libqtip-1-0
 
 ignore:
   - README.md
   - .luacheckrc
   - Libs/CallbackHandler-1.0/CallbackHandler-1.0.xml
-  - Libs/LibTextDump-1.0/LibTextDump-1.0.toc
-  - Libs/LibTextDump-1.0/lib.xml
-  - Libs/LibTextDump-1.0/CHANGES.txt
-  - Libs/LibTextDump-1.0/LibStub
   - Libs/LibGuildPositions-1.0/CallbackHandler-1.0
   - Libs/LibGuildPositions-1.0/LibStub
   - Libs/LibGuildPositions-1.0/lib.xml
   - Libs/LibGuildPositions-1.0/LibGuildPositions-1.0.toc
+  - Libs/LibQTip-1.0/lib.xml
+  - Libs/LibQTip-1.0/LibQTip-1.0.toc
+  - Libs/LibQTip-1.0/LICENSE.txt
+  - Libs/LibQTip-1.0/LibStub
+  - Libs/LibScrollingTable/lib-st.toc
+  - Libs/LibScrollingTable/lib-st.xml
