@@ -17,7 +17,6 @@ local UnitClass = _G.UnitClass
 local UnitInRaid = _G.UnitInRaid
 local UnitGroupRolesAssigned = _G.UnitGroupRolesAssigned
 local EJ_GetEncounterInfoByIndex = _G.EJ_GetEncounterInfoByIndex
-local EJ_InstanceIsRaid = _G.EJ_InstanceIsRaid
 local EJ_SelectInstance = _G.EJ_SelectInstance
 
 local ST = LibStub("ScrollingTable")
@@ -31,7 +30,15 @@ PM.EJButtonNumber = 10
 PM.TableData = {}
 PM.TableFilter = false
 PM.InstanceWhitelist = {
-  1190 -- Castle Nathria
+  1188, -- De Other Side
+  1185, -- Halls of Atonement
+  1184, -- Mists of Tirna Scithe
+  1183, -- Plaguefall
+  1189, -- Sanguine Depths
+  1186, -- Spires of Ascension
+  1182, -- The Necrotic Wake
+  1187, -- Theater of Pain
+  1190, -- Castle Nathria
 }
 PM.Status = {
   [0] = {id = 1, text = "N", textFull = _G.NEED},
@@ -341,7 +348,7 @@ function PM:AddButton(frame)
 end
 
 function PM:UpdateButtons()
-  local shouldShow = EJ_InstanceIsRaid() and tContains(PM.InstanceWhitelist, PM.EJ.instanceID)
+  local shouldShow = tContains(PM.InstanceWhitelist, PM.EJ.instanceID)
   for i=1, PM.EJButtonNumber do
     local frame = _G["EncounterJournalEncounterFrameInfoLootScrollFrameButton"..i]
     if frame and frame.PMWLHolder then
