@@ -25,7 +25,8 @@ local SER = LibStub("AceSerializer-3.0")
 local COMM = LibStub("AceComm-3.0")
 local QTIP = LibStub("LibQTip-1.0")
 
-PM.Version = 3
+PM.Version = 4
+PM.DataVersion = 1
 PM.EJButtonNumber = 10
 PM.TableData = {}
 PM.TableFilter = false
@@ -41,17 +42,8 @@ PM.InstanceWhitelist = {
   1190, -- Castle Nathria
 }
 PM.Status = {
-  [0] = {id = 1, text = "N", textFull = _G.NEED},
-  [1] = {id = 2, text = "G", textFull = _G.GREED},
-  [2] = {id = 3, text = "U", textFull = _G.UPGRADE},
-  [3] = {id = 4, text = "T", textFull = "Transmog"},
-  [4] = {id = 0, text = "-"}
-}
-PM.StatusScore = {
-  [1] = 1000,
-  [2] = 100,
-  [3] = 10,
-  [4] = 1
+  [0] = {text = "|TInterface\\RaidFrame\\ReadyCheck-NotReady:10:10:0:0|t"},
+  [1] = {text = "|TInterface\\RaidFrame\\ReadyCheck-Ready:10:10:0:0|t"}
 }
 PM.Roles = {
   ["TANK"] = CreateTextureMarkup([[Interface\LFGFrame\UI-LFG-ICON-ROLES]], 256, 256, 0, 0, GetTexCoordsForRole("TANK")),
@@ -78,7 +70,11 @@ function PM:OnEvent(self, event, ...)
         _G.PMWishListData = {}
       end
       if not _G.PMWishListDB then
-        _G.PMWishListDB = {["Players"] = {}, ["Lists"] = {}}
+        _G.PMWishListDB = {["Players"] = {}, ["Lists"] = {}, ["DataVersion"] = PM.DataVersion}
+      end
+      if not _G.PMWishListDB["DataVersion"] or _G.PMWishListDB["DataVersion"] ~= PM.DataVersion then
+        _G.PMWishListData = {}
+        _G.PMWishListDB = {["Players"] = {}, ["Lists"] = {}, ["DataVersion"] = PM.DataVersion}
       end
       PM.WishList = _G.PMWishListData
       PM.WishListDB = _G.PMWishListDB
@@ -191,15 +187,17 @@ function PM:SetupGUI()
   PM.Table = ST:CreateST(tableStructure, 25, nil, nil, PM.GUI.frame)
   PM.Table.bossIndex = bossIndex
   PM.Table:RegisterEvents({
-		["OnClick"] = function (_, cell, _, _, _, row, column, _, button, _)
-      if row ~= nil and button == "LeftButton" and PM.Tooltip == nil and string.find(cell.text:GetText(), "/") then
+    ["OnClick"] = function (_, cell, _, _, _, row, column, _, button, _)
+      if row ~= nil and button == "LeftButton" and PM.Tooltip == nil and tonumber(cell.text:GetText()) ~= nil then
         local payload = PM.WishListDB.Lists[PM.InstanceWhitelist[#PM.InstanceWhitelist]][PM.Table.cols[column].encounterID][PM.Table.data[row][2 + PM.Table.bossIndex]]["Items"]
-        PM.Tooltip = QTIP:Acquire("PMWishListTooltip", 4, "CENTER", "CENTER", "CENTER", "CENTER")
+        PM.Tooltip = QTIP:Acquire("PMWishListTooltip", 3, "CENTER", "CENTER", "CENTER")
         for itemID, status in pairs(payload) do
-          local item = Item:CreateFromItemID(itemID)
-          item:ContinueOnItemLoad(function()
-            PM.Tooltip:AddLine("|T"..item:GetItemIcon()..":32|t", item:GetItemLink(), GetItemInventorySlotInfo(item:GetInventoryType()), PM.Status[status - 1].textFull)
-          end)
+          if status == 1 then
+            local item = Item:CreateFromItemID(itemID)
+            item:ContinueOnItemLoad(function()
+              PM.Tooltip:AddLine("|T"..item:GetItemIcon()..":32|t", item:GetItemLink(), GetItemInventorySlotInfo(item:GetInventoryType()))
+            end)
+          end
         end
         PM.Tooltip:SmartAnchorTo(cell)
         PM.Tooltip:Show()
@@ -290,10 +288,10 @@ function PM:OnAddonMessage(msg, channel, sender)
           for itemID, k in pairs(payload["data"][i]) do
             if k > 0 then
               if not PM.WishListDB.Lists[payload["instanceID"]][i][sender] then
-                PM.WishListDB.Lists[payload["instanceID"]][i][sender] = {[1] = 0, [2] = 0, [3] = 0, [4] = 0, ["Score"] = 0, ["Items"] = {}}
+                PM.WishListDB.Lists[payload["instanceID"]][i][sender] = {[1] = 0, ["Score"] = 0, ["Items"] = {}}
               end
               PM.WishListDB.Lists[payload["instanceID"]][i][sender][k] = PM.WishListDB.Lists[payload["instanceID"]][i][sender][k] + 1
-              PM.WishListDB.Lists[payload["instanceID"]][i][sender]["Score"] = PM.WishListDB.Lists[payload["instanceID"]][i][sender]["Score"] + PM.StatusScore[k]
+              PM.WishListDB.Lists[payload["instanceID"]][i][sender]["Score"] = PM.WishListDB.Lists[payload["instanceID"]][i][sender]["Score"] + 1
               PM.WishListDB.Lists[payload["instanceID"]][i][sender]["Items"][itemID] = k
             end
           end
@@ -316,31 +314,8 @@ function PM:AddButton(frame)
     frame.PMWLHolder.Button = button
     button:SetWidth(45)
     button:SetHeight(45)
-    button:SetText(PM.Status[4]["text"])
+    button:SetText(PM.Status[1]["text"])
     button:SetCallback("OnClick", function() PM:SetStatus(button, frame.encounterID, frame.itemID) end)
-    button:SetCallback("OnEnter", function()
-      PM.Tooltip = QTIP:Acquire("PMWishListTooltip", 1, "LEFT")
-      PM.Tooltip:AddHeader("N - Need")
-      PM.Tooltip:AddLine("   I need this item for my main spec.")
-      PM.Tooltip:AddHeader("G - Greed")
-      PM.Tooltip:AddLine("   I need this item for my off spec.")
-      PM.Tooltip:AddHeader("U - Upgrade")
-      PM.Tooltip:AddLine("   I already have this item but want another version.")
-      PM.Tooltip:AddHeader("T - Transmog")
-      PM.Tooltip:AddLine("   I only need this item for transmog.")
-      PM.Tooltip:SetLineTextColor(1, _G.DARKYELLOW_FONT_COLOR.r, _G.DARKYELLOW_FONT_COLOR.g, _G.DARKYELLOW_FONT_COLOR.b, 1)
-      PM.Tooltip:SetLineTextColor(3, _G.DARKYELLOW_FONT_COLOR.r, _G.DARKYELLOW_FONT_COLOR.g, _G.DARKYELLOW_FONT_COLOR.b, 1)
-      PM.Tooltip:SetLineTextColor(5, _G.DARKYELLOW_FONT_COLOR.r, _G.DARKYELLOW_FONT_COLOR.g, _G.DARKYELLOW_FONT_COLOR.b, 1)
-      PM.Tooltip:SetLineTextColor(7, _G.DARKYELLOW_FONT_COLOR.r, _G.DARKYELLOW_FONT_COLOR.g, _G.DARKYELLOW_FONT_COLOR.b, 1)
-      PM.Tooltip:SmartAnchorTo(button.frame)
-      PM.Tooltip:Show()
-    end)
-    button:SetCallback("OnLeave", function()
-      if PM.Tooltip ~= nil then
-        QTIP:Release(PM.Tooltip)
-        PM.Tooltip = nil
-      end
-    end)
     button.frame:SetParent(frame.PMWLHolder)
     button.frame:SetPoint("CENTER", 75, 0)
     button.frame:Show()
@@ -374,9 +349,9 @@ function PM:GetStatus(button, encounterID, itemID)
   end
 
   if not PM.WishList[instanceID] or not PM.WishList[instanceID][encounterID] or not PM.WishList[instanceID][encounterID][itemID] or PM.WishList[instanceID][encounterID][itemID] == 0 then
-    button:SetText(PM.Status[4]["text"])
+    button:SetText(PM.Status[0]["text"])
   else
-    button:SetText(PM.Status[PM.WishList[instanceID][encounterID][itemID] - 1]["text"])
+    button:SetText(PM.Status[1]["text"])
   end
 end
 
@@ -396,9 +371,13 @@ function PM:SetStatus(button, encounterID, itemID)
     PM.WishList[instanceID][encounterID][itemID] = 0
   end
 
-  local status = PM.Status[PM.WishList[instanceID][encounterID][itemID]]
-  button:SetText(status["text"])
-  PM.WishList[instanceID][encounterID][itemID] = status["id"]
+  if PM.WishList[instanceID][encounterID][itemID] == 0 then
+    button:SetText(PM.Status[1]["text"])
+    PM.WishList[instanceID][encounterID][itemID] = 1
+  else
+    button:SetText(PM.Status[0]["text"])
+    PM.WishList[instanceID][encounterID][itemID] = 0
+  end
 end
 
 function PM:GetWishList(instanceID, encounterID, player, raw)
@@ -406,7 +385,13 @@ function PM:GetWishList(instanceID, encounterID, player, raw)
     if PM.WishListDB.Lists[instanceID][encounterID] then
       if PM.WishListDB.Lists[instanceID][encounterID][player] then
         local data = PM.WishListDB.Lists[instanceID][encounterID][player]
-        return raw and data["Score"] or tostring(data[1]).."/"..tostring(data[2]).."/"..tostring(data[3]).."/"..tostring(data[4])
+        if raw then
+          return data["Score"]
+        elseif data[1] > 0 then
+          return tostring(data[1])
+        else
+          return "-"
+        end
       else
         return raw and 0 or "-"
       end
