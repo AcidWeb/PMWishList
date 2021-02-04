@@ -1,7 +1,7 @@
 ## Interface: 90002
 ## Title: |cFFF2E699PM|r WishList
 ## Notes: Raid loot wishlist implementation for Primori Morte.
-## Version: 2.1.0
+## Version: 2.1.1
 ## Author: AcidWeb
 ## SavedVariablesPerCharacter: PMWishListData, PMWishListDB
 ## X-Website: https://www.curseforge.com/wow/addons/pm-wishlist

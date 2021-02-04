@@ -7,7 +7,7 @@ local Item = _G.Item
 local CreateFrame = _G.CreateFrame
 local CreateAtlasMarkup = _G.CreateAtlasMarkup
 local CreateTextureMarkup = _G.CreateTextureMarkup
-local NewTimer = _G.C_Timer.NewTimer
+local After = _G.C_Timer.After
 local GetItemInfo = _G.GetItemInfo
 local GetServerTime = _G.GetServerTime
 local GetTexCoordsForRole = _G.GetTexCoordsForRole
@@ -96,6 +96,7 @@ function PM:OnEvent(self, event, ...)
 
       _G.SlashCmdList["PMWL"] = function(_)
         wipe(PM.TableData)
+        After(5, function() PM:SetupGUI(); PM:UpdateTable() end)
         local data = {["version"] = PM.Version,
                       ["command"] = "request",
                       ["instanceID"] = PM.InstanceWhitelist[#PM.InstanceWhitelist]}
@@ -296,10 +297,6 @@ function PM:OnAddonMessage(msg, channel, sender)
             end
           end
         end
-        if PM.Timer then
-          PM.Timer:Cancel()
-        end
-        PM.Timer = NewTimer(1, function() PM:SetupGUI(); PM:UpdateTable() end)
       end
     end
   end
