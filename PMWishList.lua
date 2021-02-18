@@ -277,23 +277,36 @@ function PM:OnAddonMessage(msg, channel, sender)
         return
       end
       if payload["version"] == PM.Version then
+        if not PM.CurrentEncounters then
+          PM.CurrentEncounters = {}
+          local index = 1
+          EJ_SelectInstance(PM.InstanceWhitelist[#PM.InstanceWhitelist])
+          local encounterID = select(3, EJ_GetEncounterInfoByIndex(index))
+          while encounterID do
+            tInsert(PM.CurrentEncounters, encounterID)
+            index = index + 1
+            encounterID = select(3, EJ_GetEncounterInfoByIndex(index))
+          end
+        end
         PM.WishListDB.Players[sender] = {["role"] = payload["role"], ["class"] = payload["class"], ["covenant"] = payload["covenant"], ["timestamp"] = GetServerTime()}
         if not PM.WishListDB.Lists[payload["instanceID"]] then
           PM.WishListDB.Lists[payload["instanceID"]] = {}
         end
-        for i, _ in pairs(payload["data"]) do
+        for _, i in pairs(PM.CurrentEncounters) do
           if not PM.WishListDB.Lists[payload["instanceID"]][i] then
             PM.WishListDB.Lists[payload["instanceID"]][i] = {}
           end
           PM.WishListDB.Lists[payload["instanceID"]][i][sender] = nil
-          for itemID, k in pairs(payload["data"][i]) do
-            if k > 0 then
-              if not PM.WishListDB.Lists[payload["instanceID"]][i][sender] then
-                PM.WishListDB.Lists[payload["instanceID"]][i][sender] = {[1] = 0, ["Score"] = 0, ["Items"] = {}}
+          if payload["data"][i] then
+            for itemID, k in pairs(payload["data"][i]) do
+              if k > 0 then
+                if not PM.WishListDB.Lists[payload["instanceID"]][i][sender] then
+                  PM.WishListDB.Lists[payload["instanceID"]][i][sender] = {[1] = 0, ["Score"] = 0, ["Items"] = {}}
+                end
+                PM.WishListDB.Lists[payload["instanceID"]][i][sender][k] = PM.WishListDB.Lists[payload["instanceID"]][i][sender][k] + 1
+                PM.WishListDB.Lists[payload["instanceID"]][i][sender]["Score"] = PM.WishListDB.Lists[payload["instanceID"]][i][sender]["Score"] + 1
+                PM.WishListDB.Lists[payload["instanceID"]][i][sender]["Items"][itemID] = k
               end
-              PM.WishListDB.Lists[payload["instanceID"]][i][sender][k] = PM.WishListDB.Lists[payload["instanceID"]][i][sender][k] + 1
-              PM.WishListDB.Lists[payload["instanceID"]][i][sender]["Score"] = PM.WishListDB.Lists[payload["instanceID"]][i][sender]["Score"] + 1
-              PM.WishListDB.Lists[payload["instanceID"]][i][sender]["Items"][itemID] = k
             end
           end
         end
