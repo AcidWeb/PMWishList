@@ -25,7 +25,7 @@ local SER = LibStub("AceSerializer-3.0")
 local COMM = LibStub("AceComm-3.0")
 local QTIP = LibStub("LibQTip-1.0")
 
-PM.Version = 4
+PM.Version = 5
 PM.DataVersion = 1
 PM.EJButtonNumber = 10
 PM.TableData = {}
@@ -39,7 +39,9 @@ PM.InstanceWhitelist = {
   1186, -- Spires of Ascension
   1182, -- The Necrotic Wake
   1187, -- Theater of Pain
+  1194, -- Tazavesh, the Veiled Market
   1190, -- Castle Nathria
+  1193, -- Sanctum of Domination
 }
 PM.Status = {
   [0] = {text = "|TInterface\\RaidFrame\\ReadyCheck-NotReady:10:10:0:0|t"},
@@ -327,7 +329,8 @@ function PM:AddButton(frame)
     button:SetText(PM.Status[1]["text"])
     button:SetCallback("OnClick", function() PM:SetStatus(button, frame.encounterID, frame.itemID) end)
     button.frame:SetParent(frame.PMWLHolder)
-    button.frame:SetPoint("CENTER", 75, 0)
+    button.frame:ClearAllPoints()
+    button.frame:SetPoint("CENTER", 150, 0)
     button.frame:Show()
   end
 end
