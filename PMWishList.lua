@@ -23,7 +23,7 @@ local ST = LibStub("ScrollingTable")
 local GUI = LibStub("AceGUI-3.0")
 local SER = LibStub("AceSerializer-3.0")
 local COMM = LibStub("AceComm-3.0")
-local QTIP = LibStub("LibQTip-1.0")
+local QTIP = LibStub("LibQTip-1.0-DuctTape")
 
 PM.Version = 5
 PM.DataVersion = 1

@@ -8,7 +8,6 @@ externals:
   Libs/AceSerializer-3.0: https://repos.wowace.com/wow/ace3/trunk/AceSerializer-3.0
   Libs/LibGuildPositions-1.0: https://repos.curseforge.com/wow/libguildpositions-1-0/trunk
   Libs/LibScrollingTable: https://github.com/ddumont/lib-st.git
-  Libs/LibQTip-1.0: https://repos.wowace.com/wow/libqtip-1-0
 
 ignore:
   - README.md
