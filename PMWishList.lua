@@ -42,6 +42,7 @@ PM.InstanceWhitelist = {
   1194, -- Tazavesh, the Veiled Market
   1190, -- Castle Nathria
   1193, -- Sanctum of Domination
+  1195, -- Sepulcher of the First Ones
 }
 PM.Status = {
   [0] = {text = "|TInterface\\RaidFrame\\ReadyCheck-NotReady:10:10:0:0|t"},
