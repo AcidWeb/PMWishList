@@ -25,7 +25,7 @@ local SER = LibStub("AceSerializer-3.0")
 local COMM = LibStub("AceComm-3.0")
 local QTIP = LibStub("LibQTip-1.0")
 
-PM.Version = 5
+PM.Version = 6
 PM.DataVersion = 1
 PM.EJButtonNumber = 10
 PM.TableData = {}
