@@ -1,9 +1,10 @@
-## Interface: 90200
+## Interface: 90205
 ## Title: |cFFF2E699PM|r WishList
 ## Notes: Raid loot wishlist implementation for Primori Morte.
-## Version: 2.1.7
+## Version: 2.1.8
 ## Author: AcidWeb
 ## SavedVariablesPerCharacter: PMWishListData, PMWishListDB
+## X-Wago-ID: 9rN4gAGD
 
 TaintLess.xml
 Embeds.xml
